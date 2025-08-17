@@ -22,9 +22,13 @@ def _resolve_template_path(filename: str) -> Path:
     tpl_env = os.getenv("EXCEL_TEMPLATE_PATH", filename)
     tpl_path = Path(tpl_env)
     if not tpl_path.is_absolute():
-        repo_root = Path(__file__).resolve().parents[3]
-        tpl_path = repo_root / "template" / os.path.basename(tpl_env)
+        # Adjust this depending on your deployment root directory (repo root)
+        repo_root = Path(__file__).resolve().parents[2]  # Go up to project root
+        tpl_path = repo_root / "backend" / "template" / os.path.basename(tpl_env)
+
     logging.info(f"Attempting to load Excel template at resolved path: {tpl_path}")
+    logging.info(f"Directory contents: {list((repo_root / 'backend' / 'template').iterdir()) if (repo_root / 'backend' / 'template').exists() else 'Template directory not found'}")
+
     if not tpl_path.exists():
         logging.error(f"Required file does not exist at path: {tpl_path}")
         raise FileNotFoundError(f"Required file not found at resolved path: {tpl_path}")
@@ -85,7 +89,7 @@ def generate_excel(
         ws.range("E9").value = total_hours
         ws.range("F9").value = 0
 
-        # Save workbook in user's Desktop directory to avoid macOS parameter errors
+        # Save workbook temporarily to user's Desktop directory to avoid macOS permission errors
         user_desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         if not os.path.exists(user_desktop):
             os.makedirs(user_desktop)
