@@ -7,4 +7,4 @@ psycopg2-binary
 SQLAlchemy==2.0.25
 openpyxl
 python-dateutil
-xlwings
+
