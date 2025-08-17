@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 pydantic==2.7.1
 boto3
-psycopg[binary]
+psycopg2-binary
 SQLAlchemy==2.0.25
 openpyxl
 python-dateutil
