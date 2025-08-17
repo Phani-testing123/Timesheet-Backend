@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic==2.7.1
+boto3
+psycopg[binary]
+SQLAlchemy==2.0.25
+openpyxl
+python-dateutil
