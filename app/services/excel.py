@@ -7,6 +7,9 @@ import xlwings as xw
 from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
+import os
+print("RENDER CURRENT WORKING DIR:", os.getcwd())
+
 
 # --- FIX for Circular Import ---
 if TYPE_CHECKING:
