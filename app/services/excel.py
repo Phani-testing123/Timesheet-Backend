@@ -15,18 +15,18 @@ logging.basicConfig(level=logging.INFO)
 
 def _resolve_template_path(filename: str) -> Path:
     """
-    Resolves the absolute path to your Excel template file for Render when working directory is /opt/render/project/src.
+    Resolves the absolute path to your Excel template file.
+    Works with Render's deployed file structure.
     """
-    tpl_env = os.getenv("EXCEL_TEMPLATE_PATH", filename)
-    cwd = Path(os.getcwd())
-    candidate = cwd / "backend" / "template" / os.path.basename(tpl_env)
-    logging.info(f"Checking for Excel template at: {candidate}")
+    cwd = Path(os.getcwd())  # Should be /opt/render/project/src
+    candidate = cwd / "template" / filename  # Looks inside /template/ at project root
+    logging.info(f"Checking template path: {candidate}")
     if candidate.exists():
-        logging.info("Template found in backend/template folder.")
+        logging.info("Template found at root template folder.")
         return candidate
     else:
-        logging.error(f"Template not found at path: {candidate}")
-        raise FileNotFoundError(f"Template not found at path: {candidate}")
+        logging.error(f"Template not found at: {candidate}")
+        raise FileNotFoundError(f"Template not found at: {candidate}")
 
 def generate_excel(
     employee_name: str,
