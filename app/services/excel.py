@@ -17,13 +17,14 @@ logging.basicConfig(level=logging.INFO)
 
 def _resolve_template_path(filename: str) -> Path:
     """
-    Resolve the absolute path to your Excel template file.
+    Resolve the absolute path to your Excel template file, and log it.
     """
     tpl_env = os.getenv("EXCEL_TEMPLATE_PATH", filename)
     tpl_path = Path(tpl_env)
     if not tpl_path.is_absolute():
         repo_root = Path(__file__).resolve().parents[3]
         tpl_path = repo_root / "template" / os.path.basename(tpl_env)
+    logging.info(f"Attempting to load Excel template at resolved path: {tpl_path}")
     if not tpl_path.exists():
         logging.error(f"Required file does not exist at path: {tpl_path}")
         raise FileNotFoundError(f"Required file not found at resolved path: {tpl_path}")
@@ -57,7 +58,7 @@ def generate_excel(
         ws.range("G3").value = designation
         ws.range("G4").value = email_primary
         ws.range("G5").value = email_secondary
-        ws.range("B6").value = "Client : Burger King"
+        ws.range("B6").value = f"Client : {client_name or 'Burger King'}"
 
         if week_begin:
             ws.range("B9").value = week_begin.strftime("%m-%d-%Y")
