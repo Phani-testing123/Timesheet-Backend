@@ -7,35 +7,26 @@ import xlwings as xw
 from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
-import os
-print("RENDER CURRENT WORKING DIR:", os.getcwd())
 
-
-# --- FIX for Circular Import ---
 if TYPE_CHECKING:
     from app.routes.exports import DayHours
 
-# Configure basic logging
 logging.basicConfig(level=logging.INFO)
 
 def _resolve_template_path(filename: str) -> Path:
     """
-    Resolve the absolute path to your Excel template file, and log it.
+    Resolves the absolute path to your Excel template file for Render when working directory is /opt/render/project/src.
     """
     tpl_env = os.getenv("EXCEL_TEMPLATE_PATH", filename)
-    tpl_path = Path(tpl_env)
-    if not tpl_path.is_absolute():
-        # Adjust this depending on your deployment root directory (repo root)
-        repo_root = Path(__file__).resolve().parents[2]  # Go up to project root
-        tpl_path = repo_root / "backend" / "template" / os.path.basename(tpl_env)
-
-    logging.info(f"Attempting to load Excel template at resolved path: {tpl_path}")
-    logging.info(f"Directory contents: {list((repo_root / 'backend' / 'template').iterdir()) if (repo_root / 'backend' / 'template').exists() else 'Template directory not found'}")
-
-    if not tpl_path.exists():
-        logging.error(f"Required file does not exist at path: {tpl_path}")
-        raise FileNotFoundError(f"Required file not found at resolved path: {tpl_path}")
-    return tpl_path
+    cwd = Path(os.getcwd())
+    candidate = cwd / "backend" / "template" / os.path.basename(tpl_env)
+    logging.info(f"Checking for Excel template at: {candidate}")
+    if candidate.exists():
+        logging.info("Template found in backend/template folder.")
+        return candidate
+    else:
+        logging.error(f"Template not found at path: {candidate}")
+        raise FileNotFoundError(f"Template not found at path: {candidate}")
 
 def generate_excel(
     employee_name: str,
@@ -57,10 +48,9 @@ def generate_excel(
 
     app = xw.App(visible=False)
     try:
-        wb = app.books.open(template_path)
-        ws = wb.sheets['Timesheet']  # Adjust if your sheet name differs
+        wb = app.books.open(str(template_path))
+        ws = wb.sheets['Timesheet']  # Change if your sheet name is different
 
-        # Fill cells with provided data
         ws.range("G2").value = employee_name
         ws.range("G3").value = designation
         ws.range("G4").value = email_primary
@@ -75,15 +65,15 @@ def generate_excel(
         sorted_days = sorted(days, key=lambda d: d.work_date) if days else []
         total_hours = 0
         for i in range(5):
-            col_index = 3 + i  # Start at column C (3)
-            date_cell = ws.cells(11, col_index)  # Row 11, col C+
-            hours_cell = ws.cells(12, col_index)  # Row 12, col C+
+            col_index = 3 + i
+            date_cell = ws.cells(11, col_index)  
+            hours_cell = ws.cells(12, col_index)
             if i < len(sorted_days):
                 day = sorted_days[i]
                 hours = day.hours if day.hours is not None else 0
                 total_hours += hours
                 date_cell.value = day.work_date.strftime("%m-%d-%Y")
-                hours_cell.value = hours  # <--- always writes zero if hours==0
+                hours_cell.value = hours
             else:
                 date_cell.value = ""
                 hours_cell.value = ""
@@ -92,7 +82,6 @@ def generate_excel(
         ws.range("E9").value = total_hours
         ws.range("F9").value = 0
 
-        # Save workbook temporarily to user's Desktop directory to avoid macOS permission errors
         user_desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         if not os.path.exists(user_desktop):
             os.makedirs(user_desktop)
@@ -106,8 +95,7 @@ def generate_excel(
         with open(export_path, "rb") as f:
             bytes_data = f.read()
 
-        os.remove(export_path)  # Clean up the saved file after reading
-
+        os.remove(export_path)
         logging.info(f"Successfully generated Excel for: {employee_name}")
         return bytes_data
 
