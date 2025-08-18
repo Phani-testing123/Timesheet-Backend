@@ -1,27 +1,53 @@
-import logging
-from io import BytesIO
-from pathlib import Path
-from typing import List, Optional, TYPE_CHECKING
-from datetime import date
-import openpyxl
+# backend/app/services/excel.py
+import io
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
+from datetime import date, datetime
+from openpyxl import load_workbook
 
-if TYPE_CHECKING:
-    from app.routes.exports import DayHours
+# ---------- Data container ----------
+class DayHours:
+    def __init__(self, work_date: date, hours: float):
+        self.work_date = work_date
+        self.hours = hours
 
-logging.basicConfig(level=logging.INFO)
+# ---------- Config ----------
+def _resolve_template_path() -> Tuple[Path, bool]:
+    env_path = os.getenv("EXCEL_TEMPLATE_PATH", "template/Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx")
+    p = Path(env_path)
+    if not p.is_absolute():
+        p = Path(__file__).resolve().parents[2] / env_path
+    if not p.exists():
+        raise FileNotFoundError(f"Excel template not found at: {p}")
+    ext = p.suffix.lower()
+    if ext == ".xls":
+        raise ValueError("Please use .xlsx or .xlsm template (not .xls).")
+    keep_vba = (ext == ".xlsm")
+    return p, keep_vba
 
-def _resolve_template_path(filename: str) -> Path:
-    cwd = Path(os.getcwd())
-    candidate = cwd / "template" / filename
-    logging.info(f"Checking template path: {candidate}")
-    if candidate.exists():
-        logging.info("Template found at root template folder.")
-        return candidate
-    else:
-        logging.error(f"Template not found at: {candidate}")
-        raise FileNotFoundError(f"Template not found at: {candidate}")
+SHEET_FB = os.getenv("EXCEL_SHEET_NAME", "Timesheet")
 
+# ---------- Helpers ----------
+def _coerce_date(val: Union[str, date, None]) -> Optional[date]:
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        s = val.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m-%d-%Y"):
+            try:
+                return datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+    return None
+
+def _date_to_text(d: Optional[date]) -> Optional[str]:
+    if not d:
+        return None
+    # Always return MM-DD-YYYY
+    return d.strftime("%m-%d-%Y")
+
+# ---------- Main ----------
 def generate_excel(
     employee_name: str,
     designation: str,
@@ -30,50 +56,89 @@ def generate_excel(
     client_name: Optional[str] = None,
     week_begin: Optional[date] = None,
     week_end: Optional[date] = None,
-    days: Optional[List["DayHours"]] = None,
+    days: Optional[List[DayHours]] = None,
 ) -> bytes:
-    template_filename = "Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx"
-    template_path = _resolve_template_path(template_filename)
+    """
+    Writes into fixed cell positions.
+    Dates -> MM-DD-YYYY (text).
+    Hours -> numeric.
+    Totals -> computed here.
+    """
+    template_path, keep_vba = _resolve_template_path()
+    wb = load_workbook(
+        filename=str(template_path),
+        data_only=True,
+        keep_vba=keep_vba,
+        keep_links=False
+    )
+    ws = wb[SHEET_FB] if SHEET_FB in wb.sheetnames else wb.active
 
-    wb = openpyxl.load_workbook(template_path)
-    ws = wb['Timesheet']  # Change if your sheet name is different
+    # ✅ FIX corruption: Remove tables & drawings before writing
+    for sheet in wb.worksheets:
+        while sheet._tables:
+            del sheet._tables[0]
+        sheet._drawing = None
 
-    ws["G2"] = employee_name
-    ws["G3"] = designation
-    ws["G4"] = email_primary
-    ws["G5"] = email_secondary
-    ws["B6"] = f"Client : {client_name or 'Burger King'}"
+    # ---- Employee block ----
+    ws["G2"].value = (employee_name or "").strip()
+    ws["G3"].value = (designation or "").strip()
+    ws["G4"].value = (email_primary or "").strip()
+    ws["G5"].value = (email_secondary or "").strip()
 
+    # ---- Week Beginning & Ending ----
     if week_begin:
-        ws["B9"] = week_begin.strftime("%m-%d-%Y")
+        ws["B9"].value = _date_to_text(_coerce_date(week_begin))
+        ws["B9"].number_format = "@"
     if week_end:
-        ws["C9"] = week_end.strftime("%m-%d-%Y")
+        ws["C9"].value = _date_to_text(_coerce_date(week_end))
+        ws["C9"].number_format = "@"
 
-    sorted_days = sorted(days, key=lambda d: d.work_date) if days else []
-    total_hours = 0
-    for i in range(5):
-        col_index = 3 + i  # Columns C, D, E, F, G
-        row_date = 11
-        row_hours = 12
+    # ---- Daily Dates & Hours ----
+    date_cells = ["C11", "D11", "E11", "F11", "G11"]
+    hour_cells = ["C12", "D12", "E12", "F12", "G12"]
 
-        cell_date = ws.cell(row=row_date, column=col_index)
-        cell_hours = ws.cell(row=row_hours, column=col_index)
+    total_hours = 0.0
+    norm: List[DayHours] = []
 
-        if i < len(sorted_days):
-            day = sorted_days[i]
-            hours = day.hours if day.hours is not None else 0
-            total_hours += hours
-            cell_date.value = day.work_date.strftime("%m-%d-%Y")
-            cell_hours.value = hours
-        else:
-            cell_date.value = None
-            cell_hours.value = None
+    if days:
+        for d in days:
+            if d is None:
+                continue
+            wd = _coerce_date(getattr(d, "work_date", None) if hasattr(d, "work_date") else d.get("work_date"))
+            hrs_raw = getattr(d, "hours", None) if hasattr(d, "hours") else d.get("hours")
+            try:
+                hrs = None if hrs_raw in (None, "") else round(float(hrs_raw), 2)
+            except Exception:
+                hrs = None
+            if wd:
+                norm.append(DayHours(wd, hrs if hrs is not None else 0.0))
 
-    ws["D9"] = total_hours
-    ws["E9"] = total_hours
-    ws["F9"] = 0
+    norm.sort(key=lambda x: x.work_date)
+    norm = norm[:5]
 
-    stream = BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-    return stream.getvalue()
+    for i, entry in enumerate(norm):
+        ws[date_cells[i]].value = _date_to_text(entry.work_date)
+        ws[date_cells[i]].number_format = "@"
+        ws[hour_cells[i]].value = entry.hours
+        ws[hour_cells[i]].number_format = "0.00"
+        total_hours += entry.hours
+
+    # ---- Totals ----
+    regular_hours = min(total_hours, 40.0)
+    overtime_hours = max(total_hours - 40.0, 0.0)
+
+    ws["D9"].value = total_hours
+    ws["D9"].number_format = "0.00"
+    ws["E9"].value = regular_hours
+    ws["E9"].number_format = "0.00"
+
+    # Optional: add overtime hours in F9 if template has it
+    if "F9" in ws:
+        ws["F9"].value = overtime_hours
+        ws["F9"].number_format = "0.00"
+
+    # ---- Save ----
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.read()
