@@ -2,8 +2,12 @@
 # exit on error
 set -o errexit
 
-# Install system dependencies
+# --- Add this section to install system dependencies ---
+echo "Installing system dependencies for image processing..."
 apt-get update && apt-get install -y libjpeg-dev zlib1g-dev --no-install-recommends
 
-# Install Python dependencies
+# --- Your original build command ---
+echo "Installing Python dependencies..."
 pip install -r requirements.txt
+
+echo "Build complete."
