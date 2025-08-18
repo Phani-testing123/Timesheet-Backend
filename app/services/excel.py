@@ -14,10 +14,7 @@ class DayHours:
 
 # ---------- Config ----------
 def _resolve_template_path() -> Tuple[Path, bool]:
-    env_path = os.getenv(
-        "EXCEL_TEMPLATE_PATH",
-        "template/Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx"
-    )
+    env_path = os.getenv("EXCEL_TEMPLATE_PATH", "template/Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx")
     p = Path(env_path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parents[1] / env_path
@@ -47,7 +44,7 @@ def _coerce_date(val: Union[str, date, None]) -> Optional[date]:
 def _date_to_text(d: Optional[date]) -> Optional[str]:
     if not d:
         return None
-    return d.strftime("%m-%d-%Y")  # Always MM-DD-YYYY
+    return d.strftime("%m-%d-%Y")  # Always return MM-DD-YYYY
 
 # ---------- Main ----------
 def generate_excel(
@@ -60,27 +57,24 @@ def generate_excel(
     week_end: Optional[date] = None,
     days: Optional[List[DayHours]] = None,
 ) -> bytes:
-    """
-    Writes into fixed cell positions.
-    Dates -> MM-DD-YYYY (text).
-    Hours -> numeric.
-    Totals -> computed here.
-    """
     template_path, keep_vba = _resolve_template_path()
     wb = load_workbook(
         filename=str(template_path),
-        data_only=True,
+        data_only=False,
         keep_vba=keep_vba,
         keep_links=False
     )
     ws = wb[SHEET_FB] if SHEET_FB in wb.sheetnames else wb.active
 
-    # ✅ FIX corruption: remove tables only (keep drawings/logos intact)
+    # ✅ Clean tables but preserve drawings/logos
     for sheet in wb.worksheets:
         if hasattr(sheet, "_tables"):
             sheet._tables.clear()
+        if hasattr(sheet, "_drawing") and sheet._drawing is not None:
+            # We don’t delete it, just log it exists
+            print(f"⚠️ Drawing found in sheet '{sheet.title}', preserved for logos.")
 
-    # ---- Employee info ----
+    # ---- Employee block ----
     ws["G2"].value = (employee_name or "").strip()
     ws["G3"].value = (designation or "").strip()
     ws["G4"].value = (email_primary or "").strip()
@@ -105,10 +99,7 @@ def generate_excel(
         for d in days:
             if d is None:
                 continue
-            wd = _coerce_date(
-                getattr(d, "work_date", None)
-                if hasattr(d, "work_date") else d.get("work_date")
-            )
+            wd = _coerce_date(getattr(d, "work_date", None) if hasattr(d, "work_date") else d.get("work_date"))
             hrs_raw = getattr(d, "hours", None) if hasattr(d, "hours") else d.get("hours")
             try:
                 hrs = None if hrs_raw in (None, "") else round(float(hrs_raw), 2)
@@ -117,7 +108,6 @@ def generate_excel(
             if wd:
                 norm.append(DayHours(wd, hrs if hrs is not None else 0.0))
 
-    # Sort and restrict to max 5 days
     norm.sort(key=lambda x: x.work_date)
     norm = norm[:5]
 
@@ -134,11 +124,9 @@ def generate_excel(
 
     ws["D9"].value = total_hours
     ws["D9"].number_format = "0.00"
-
     ws["E9"].value = regular_hours
     ws["E9"].number_format = "0.00"
 
-    # optional overtime in F9
     if "F9" in ws:
         ws["F9"].value = overtime_hours
         ws["F9"].number_format = "0.00"
