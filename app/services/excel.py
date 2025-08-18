@@ -75,12 +75,10 @@ def generate_excel(
     )
     ws = wb[SHEET_FB] if SHEET_FB in wb.sheetnames else wb.active
 
-    # ✅ FIX corruption: remove tables + drawings safely
+    # ✅ FIX corruption: remove tables only (keep drawings/logos intact)
     for sheet in wb.worksheets:
         if hasattr(sheet, "_tables"):
             sheet._tables.clear()
-        if hasattr(sheet, "_drawing"):
-            sheet._drawing = None
 
     # ---- Employee info ----
     ws["G2"].value = (employee_name or "").strip()
