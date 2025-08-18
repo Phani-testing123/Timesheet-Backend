@@ -44,7 +44,8 @@ def _coerce_date(val: Union[str, date, None]) -> Optional[date]:
 def _date_to_text(d: Optional[date]) -> Optional[str]:
     if not d:
         return None
-    return d.strftime("%m-%d-%Y")  # Always return MM-DD-YYYY
+    # Always return MM-DD-YYYY
+    return d.strftime("%m-%d-%Y")
 
 # ---------- Main ----------
 def generate_excel(
@@ -57,22 +58,20 @@ def generate_excel(
     week_end: Optional[date] = None,
     days: Optional[List[DayHours]] = None,
 ) -> bytes:
+    """
+    Writes into fixed cell positions.
+    Dates -> MM-DD-YYYY (text).
+    Hours -> numeric.
+    Totals -> computed here.
+    """
     template_path, keep_vba = _resolve_template_path()
     wb = load_workbook(
         filename=str(template_path),
-        data_only=False,
+        data_only=False,   # ✅ KEEP LOGOS/IMAGES
         keep_vba=keep_vba,
         keep_links=False
     )
     ws = wb[SHEET_FB] if SHEET_FB in wb.sheetnames else wb.active
-
-    # ✅ Clean tables but preserve drawings/logos
-    for sheet in wb.worksheets:
-        if hasattr(sheet, "_tables"):
-            sheet._tables.clear()
-        if hasattr(sheet, "_drawing") and sheet._drawing is not None:
-            # We don’t delete it, just log it exists
-            print(f"⚠️ Drawing found in sheet '{sheet.title}', preserved for logos.")
 
     # ---- Employee block ----
     ws["G2"].value = (employee_name or "").strip()
