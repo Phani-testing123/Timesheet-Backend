@@ -7,15 +7,20 @@ from datetime import date, datetime
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
 
+
 # ---------- Data container ----------
 class DayHours:
     def __init__(self, work_date: date, hours: float):
         self.work_date = work_date
         self.hours = hours
 
+
 # ---------- Config ----------
 def _resolve_template_path() -> Tuple[Path, bool]:
-    env_path = os.getenv("EXCEL_TEMPLATE_PATH", "template/Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx")
+    env_path = os.getenv(
+        "EXCEL_TEMPLATE_PATH",
+        "template/Gudipati_Phani_Babu_Timesheet_Week_Ending_08152025.xlsx"
+    )
     p = Path(env_path)
     if not p.is_absolute():
         p = Path(__file__).resolve().parents[1] / env_path
@@ -27,7 +32,9 @@ def _resolve_template_path() -> Tuple[Path, bool]:
     keep_vba = (ext == ".xlsm")
     return p, keep_vba
 
+
 SHEET_FB = os.getenv("EXCEL_SHEET_NAME", "Timesheet")
+
 
 # ---------- Helpers ----------
 def _coerce_date(val: Union[str, date, None]) -> Optional[date]:
@@ -42,11 +49,12 @@ def _coerce_date(val: Union[str, date, None]) -> Optional[date]:
                 pass
     return None
 
+
 def _date_to_text(d: Optional[date]) -> Optional[str]:
     if not d:
         return None
-    # Always return MM-DD-YYYY
-    return d.strftime("%m-%d-%Y")
+    return d.strftime("%m-%d-%Y")  # Always return MM-DD-YYYY
+
 
 # ---------- Main ----------
 def generate_excel(
@@ -68,7 +76,7 @@ def generate_excel(
     template_path, keep_vba = _resolve_template_path()
     wb = load_workbook(
         filename=str(template_path),
-        data_only=True,
+        data_only=False,
         keep_vba=keep_vba,
         keep_links=False
     )
@@ -79,6 +87,10 @@ def generate_excel(
     ws["G3"].value = (designation or "").strip()
     ws["G4"].value = (email_primary or "").strip()
     ws["G5"].value = (email_secondary or "").strip()
+
+    # ---- Client name ----
+    if client_name:
+        ws["C6"].value = f"Client : {client_name}"
 
     # ---- Week Beginning & Ending ----
     if week_begin:
@@ -99,8 +111,14 @@ def generate_excel(
         for d in days:
             if d is None:
                 continue
-            wd = _coerce_date(getattr(d, "work_date", None) if hasattr(d, "work_date") else d.get("work_date"))
-            hrs_raw = getattr(d, "hours", None) if hasattr(d, "hours") else d.get("hours")
+            wd = _coerce_date(
+                getattr(d, "work_date", None)
+                if hasattr(d, "work_date") else d.get("work_date")
+            )
+            hrs_raw = (
+                getattr(d, "hours", None)
+                if hasattr(d, "hours") else d.get("hours")
+            )
             try:
                 hrs = None if hrs_raw in (None, "") else round(float(hrs_raw), 2)
             except Exception:
@@ -134,10 +152,12 @@ def generate_excel(
         logo_path = Path(__file__).resolve().parents[1] / "template/logo.png"
         if logo_path.exists():
             img = XLImage(str(logo_path))
-            img.anchor = "B2"   # Place logo at B2
-            img.width = 400     # Adjust to match your local size
-            img.height = 100
+            img.anchor = "B2"     # Same as template
+            img.width = 360       # Match template size
+            img.height = 90
             ws.add_image(img)
+        else:
+            print(f"⚠️ Logo file missing at {logo_path}")
     except Exception as e:
         print(f"⚠️ Logo insert failed: {e}")
 
