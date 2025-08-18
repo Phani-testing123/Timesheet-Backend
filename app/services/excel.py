@@ -147,20 +147,6 @@ def generate_excel(
     ws["F9"].value = overtime_hours
     ws["F9"].number_format = "0.00"
 
-    # ---- Re-add Logo ----
-    try:
-        logo_path = Path(__file__).resolve().parents[2] / "template/logo.png"
-        if logo_path.exists():
-            img = XLImage(str(logo_path))
-            img.anchor = "B2"     # Same as template
-            img.width = 360       # Match template size
-            img.height = 90
-            ws.add_image(img)
-        else:
-            print(f"⚠️ Logo file missing at {logo_path}")
-    except Exception as e:
-        print(f"⚠️ Logo insert failed: {e}")
-
     # ---- Save ----
     out = io.BytesIO()
     wb.save(out)
