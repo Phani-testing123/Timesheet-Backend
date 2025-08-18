@@ -8,6 +8,7 @@ apt-get update && apt-get install -y libjpeg-dev zlib1g-dev --no-install-recomme
 
 # --- Your original build command ---
 echo "Installing Python dependencies..."
+pip install Pillow
 pip install -r requirements.txt
 
 echo "Build complete."
