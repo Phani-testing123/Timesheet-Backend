@@ -149,7 +149,7 @@ def generate_excel(
 
     # ---- Re-add Logo ----
     try:
-        logo_path = Path(__file__).resolve().parents[1] / "template/logo.png"
+        logo_path = Path(__file__).resolve().parents[2] / "template/logo.png"
         if logo_path.exists():
             img = XLImage(str(logo_path))
             img.anchor = "B2"     # Same as template
