@@ -20,7 +20,7 @@ def _resolve_template_path() -> Tuple[Path, bool]:
     )
     p = Path(env_path)
     if not p.is_absolute():
-        p = Path(__file__).resolve().parents[2] / env_path
+        p = Path(__file__).resolve().parents[1] / env_path
     if not p.exists():
         raise FileNotFoundError(f"Excel template not found at: {p}")
     ext = p.suffix.lower()
