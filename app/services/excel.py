@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 from datetime import date, datetime
 from openpyxl import load_workbook
+from openpyxl.drawing.image import Image as XLImage
 
 # ---------- Data container ----------
 class DayHours:
@@ -67,7 +68,7 @@ def generate_excel(
     template_path, keep_vba = _resolve_template_path()
     wb = load_workbook(
         filename=str(template_path),
-        data_only=False,   # ✅ KEEP LOGOS/IMAGES
+        data_only=True,
         keep_vba=keep_vba,
         keep_links=False
     )
@@ -125,10 +126,20 @@ def generate_excel(
     ws["D9"].number_format = "0.00"
     ws["E9"].value = regular_hours
     ws["E9"].number_format = "0.00"
+    ws["F9"].value = overtime_hours
+    ws["F9"].number_format = "0.00"
 
-    if "F9" in ws:
-        ws["F9"].value = overtime_hours
-        ws["F9"].number_format = "0.00"
+    # ---- Re-add Logo ----
+    try:
+        logo_path = Path(__file__).resolve().parents[1] / "template/logo.png"
+        if logo_path.exists():
+            img = XLImage(str(logo_path))
+            img.anchor = "B2"   # Place logo at B2
+            img.width = 400     # Adjust to match your local size
+            img.height = 100
+            ws.add_image(img)
+    except Exception as e:
+        print(f"⚠️ Logo insert failed: {e}")
 
     # ---- Save ----
     out = io.BytesIO()
