@@ -60,8 +60,8 @@ def _date_to_text(d: Optional[date]) -> Optional[str]:
 def generate_excel(
     employee_name: str,
     designation: str,
-    email_primary: str,
-    email_secondary: str,
+    rbi_email: str,
+    tiu_email: str,
     client_name: Optional[str] = None,
     week_begin: Optional[date] = None,
     week_end: Optional[date] = None,
@@ -85,8 +85,8 @@ def generate_excel(
     # ---- Employee block ----
     ws["G2"].value = (employee_name or "").strip()
     ws["G3"].value = (designation or "").strip()
-    ws["G4"].value = (email_primary or "").strip()
-    ws["G5"].value = (email_secondary or "").strip()
+    ws["G4"].value = (rbi_email or "").strip()
+    ws["G5"].value = (tiu_email or "").strip()
 
     # ---- Client name ----
     if client_name:

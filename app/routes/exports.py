@@ -25,8 +25,8 @@ class DayHours(BaseModel):
 class ExportRequest(BaseModel):
     employee_name: str
     designation: str
-    email_primary: str
-    email_secondary: Optional[str] = ""
+    rbi_email: str
+    tiu_email: Optional[str] = ""
     week_begin: Optional[date] = None
     week_end: Optional[date] = None
     days: Optional[List[DayHours]] = None
@@ -79,8 +79,8 @@ def export_weekly_download(req: ExportRequest):
         xls_bytes = generate_excel(
             employee_name=req.employee_name,
             designation=req.designation,
-            email_primary=req.email_primary,
-            email_secondary=req.email_secondary or "",
+            rbi_email=req.rbi_email,
+            tiu_email=req.tiu_email or "",
             client_name=req.client_name,
             week_begin=req.week_begin,
             week_end=req.week_end,
